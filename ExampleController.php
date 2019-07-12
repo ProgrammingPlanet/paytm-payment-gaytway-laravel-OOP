@@ -10,18 +10,22 @@ use Session;
 
 use App\Http\Controllers\PaymentGateway\Paytm\PaytmPayment;
 
-class ExampleController extends Controller
+class PaytmController extends Controller
 {
-	
+	private $paytm_obj;
+
+	function __construct()
+	{
+		$this->paytm_obj = new PaytmPayment;
+	}
+
 	public function redirect(Request $request)
 	{
 
 		$amount = $request->input('amount');
-		$orderId = $request->input('order_id');
-		$customerId = $request->input('cust_id');
-
-		$obj = new PaytmPayment;
-		$arr = $obj->genrateParamlist($amount,$orderId,$customerId);
+		$orderId = $request->has('order_id') ? $request->input('order_id') : Str::random(25);
+		$customerId = $request->has('cust_id') ? $request->input('cust_id') : Str::random(10);
+		$arr = $this->paytm_obj->genrateParamlist($amount,$orderId,$customerId);
 
 		Session(['paytmpayment'=>['amount'=>$amount,'orderid'=>$orderId]]);
 
@@ -35,18 +39,17 @@ class ExampleController extends Controller
 	public function response(Request $request)
 	{
 
-		$obj = new PaytmPayment;
+		$this->paytm_obj = new PaytmPayment;
 		$error = '';
 		
 		if( $request->input('STATUS') == "TXN_SUCCESS"){
 
 			$paramList = $request->all();
-			$isValidChecksum = $obj->verifychecksum_e($paramList,$request->input('CHECKSUMHASH'));
+			$isValidChecksum = $this->paytm_obj->verifychecksum_e($paramList,$request->input('CHECKSUMHASH'));
 			if($isValidChecksum){	//valid checksum
 				$orig_info = session('paytmpayment');
 				if($orig_info['orderid']==$request->input('ORDERID')){
 					if($orig_info['amount']==$request->input('TXNAMOUNT')){
-
 						return $this->txnStatus(new Request, $orig_info['orderid']);	//final varification
 
 					}else
@@ -66,10 +69,16 @@ class ExampleController extends Controller
 	public function txnStatus(Request $request, $orderid='')
 	{
 		$orderid = $request->has('order_id') ? $request->input('order_id') : $orderid;
-		$obj = new PaytmPayment;
-		$responseParamList = $obj->TxnStatus($orderid);
+		$responseParamList = $this->paytm_obj->TxnStatus($orderid);
 		return view('PaymentGateway.Paytm.success',['params'=>$responseParamList]);
 
 	}
 
+	public function test()
+	{
+		SampleClass::test();
+	}
+
+
 }
+
